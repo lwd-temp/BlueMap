@@ -50,7 +50,8 @@ allprojects {
 			'**/*.conf',
 			'**/*.yml',
 			'**/*.zip',
-			'**/*.json'
+			'**/*.json',
+			'**/PreCompressedResourceSupplier.java'
 		])
 	}
 }

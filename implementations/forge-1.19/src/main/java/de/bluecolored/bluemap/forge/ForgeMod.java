@@ -88,11 +88,11 @@ public class ForgeMod implements ServerInterface {
         try {
             mcVersion = MinecraftVersion.of(versionString);
         } catch (IllegalArgumentException ex) {
-            mcVersion = new MinecraftVersion(1, 18, 1);
+            mcVersion = new MinecraftVersion(1, 19, 0);
             Logger.global.logWarning("Failed to derive version from version-string '" + versionString +
                                      "', falling back to version: " + mcVersion.getVersionString());
         }
-        this.pluginInstance = new Plugin(mcVersion, "forge-1.18.1", this);
+        this.pluginInstance = new Plugin(mcVersion, "forge-1.19", this);
 
         this.worldUUIDs = new ConcurrentHashMap<>();
         this.eventForwarder = new ForgeEventForwarder();

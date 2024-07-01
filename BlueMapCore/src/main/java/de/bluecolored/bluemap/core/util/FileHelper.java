@@ -28,9 +28,13 @@ import de.bluecolored.bluemap.core.util.stream.OnCloseOutputStream;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
+import java.nio.file.WatchService;
 import java.nio.file.*;
 import java.nio.file.attribute.FileAttribute;
+import java.util.concurrent.TimeUnit;
 
 public class FileHelper {
 
@@ -39,20 +43,21 @@ public class FileHelper {
      * once the stream gets closed.
      */
     public static OutputStream createFilepartOutputStream(final Path file) throws IOException {
-        final Path partFile = getPartFile(file);
-        FileHelper.createDirectories(partFile.getParent());
+        Path folder = file.toAbsolutePath().normalize().getParent();
+        final Path partFile = folder.resolve(file.getFileName() + ".filepart");
+        FileHelper.createDirectories(folder);
         OutputStream os = Files.newOutputStream(partFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
         return new OnCloseOutputStream(os, () -> {
             if (!Files.exists(partFile)) return;
-            FileHelper.createDirectories(file.getParent());
-            FileHelper.move(partFile, file);
+            FileHelper.createDirectories(folder);
+            FileHelper.atomicMove(partFile, file);
         });
     }
 
     /**
      * Tries to move the file atomically, but fallbacks to a normal move operation if moving atomically fails
      */
-    public static void move(Path from, Path to) throws IOException {
+    public static void atomicMove(Path from, Path to) throws IOException {
         try {
             Files.move(from, to, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (FileNotFoundException | NoSuchFileException ignore) {
@@ -76,8 +81,63 @@ public class FileHelper {
         return Files.createDirectories(dir, attrs);
     }
 
-    private static Path getPartFile(Path file) {
-        return file.normalize().getParent().resolve(file.getFileName() + ".filepart");
+
+    /**
+     * Extracts the entire zip-file into the given target directory
+     */
+    public static void extractZipFile(URL zipFile, Path targetDirectory, CopyOption... options) throws IOException {
+        Path temp = Files.createTempFile(null, ".zip");
+        FileHelper.copy(zipFile, temp);
+        FileHelper.extractZipFile(temp, targetDirectory, options);
+        Files.deleteIfExists(temp);
+    }
+
+    /**
+     * Extracts the entire zip-file into the given target directory
+     */
+    public static void extractZipFile(Path zipFile, Path targetDirectory, CopyOption... options) throws IOException {
+        try (FileSystem webappZipFs = FileSystems.newFileSystem(zipFile, (ClassLoader) null)) {
+            CopyingPathVisitor copyAction = new CopyingPathVisitor(targetDirectory, options);
+            for (Path root : webappZipFs.getRootDirectories()) {
+                Files.walkFileTree(root, copyAction);
+            }
+        }
+    }
+
+    /**
+     * Copies from a URL to a target-path
+     */
+    public static void copy(URL source, Path target) throws IOException {
+        try (
+                InputStream in = source.openStream();
+                OutputStream out = Files.newOutputStream(target)
+        ) {
+            in.transferTo(out);
+        }
+    }
+
+    /**
+     * Uses file-watchers on the path-parent to wait until a specific file or folder exists
+     */
+    public static boolean awaitExistence(Path path, long timeout, TimeUnit unit) throws IOException, InterruptedException {
+        if (Files.exists(path)) return true;
+
+        long endTime = System.currentTimeMillis() + unit.toMillis(timeout);
+
+        Path parent = path.toAbsolutePath().normalize().getParent();
+        if (parent == null) throw new IOException("No parent directory exists that can be watched.");
+        if (!awaitExistence(parent, timeout, unit)) return false;
+
+        try (WatchService watchService = parent.getFileSystem().newWatchService()) {
+            parent.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
+            while (!Files.exists(path)) {
+                long now = System.currentTimeMillis();
+                if (now >= endTime) return false;
+                WatchKey key = watchService.poll(endTime - now, TimeUnit.MILLISECONDS);
+                if (key != null) key.reset();
+            }
+            return true;
+        }
     }
 
 }

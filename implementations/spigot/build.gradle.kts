@@ -3,7 +3,7 @@ plugins {
 	`java-library`
 	id("com.diffplug.spotless") version "6.1.2"
 	id ("com.github.node-gradle.node") version "3.0.1"
-	id ("com.github.johnrengelman.shadow") version "7.1.2"
+	id ("com.github.johnrengelman.shadow") version "8.1.1"
 	id ("com.modrinth.minotaur") version "2.+"
 }
 
@@ -101,8 +101,6 @@ tasks.shadowJar {
 	relocate ("com.google.inject", "de.bluecolored.shadow.google.inject")
 
 	relocate ("org.apache.commons.dbcp2", "de.bluecolored.shadow.apache.commons.dbcp2")
-	relocate ("org.apache.commons.io", "de.bluecolored.shadow.apache.commons.io")
-	relocate ("org.apache.commons.lang3", "de.bluecolored.shadow.apache.commons.lang3")
 	relocate ("org.apache.commons.logging", "de.bluecolored.shadow.apache.commons.logging")
 	relocate ("org.apache.commons.pool2", "de.bluecolored.shadow.apache.commons.pool2")
 }
@@ -125,7 +123,8 @@ modrinth {
 		"1.17", "1.17.1",
 		"1.18", "1.18.1", "1.18.2",
 		"1.19", "1.19.1", "1.19.2", "1.19.3", "1.19.4",
-		"1.20", "1.20.1", "1.20.2", "1.20.3", "1.20.4"
+		"1.20", "1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6",
+		"1.21"
 	)
 }
 

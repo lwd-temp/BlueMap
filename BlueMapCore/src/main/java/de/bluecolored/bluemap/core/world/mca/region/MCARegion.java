@@ -32,7 +32,6 @@ import de.bluecolored.bluemap.core.world.Region;
 import de.bluecolored.bluemap.core.world.mca.MCAWorld;
 import de.bluecolored.bluemap.core.world.mca.chunk.MCAChunk;
 import lombok.Getter;
-import lombok.ToString;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -41,12 +40,22 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.regex.Pattern;
 
 @Getter
-@ToString
 public class MCARegion implements Region {
 
     public static final String FILE_SUFFIX = ".mca";
+    public static final Pattern FILE_PATTERN = Pattern.compile("^r\\.(-?\\d+)\\.(-?\\d+)\\.mca$");
+
+    public static final Compression[] CHUNK_COMPRESSION_MAP = new Compression[255];
+    static {
+        CHUNK_COMPRESSION_MAP[0] = Compression.NONE;
+        CHUNK_COMPRESSION_MAP[1] = Compression.GZIP;
+        CHUNK_COMPRESSION_MAP[2] = Compression.DEFLATE;
+        CHUNK_COMPRESSION_MAP[3] = Compression.NONE;
+        CHUNK_COMPRESSION_MAP[4] = Compression.LZ4;
+    }
 
     private final MCAWorld world;
     private final Path regionFile;
@@ -83,11 +92,11 @@ public class MCARegion implements Region {
             channel.position(xzChunk * 4);
             readFully(channel, header, 0, 4);
 
-            int offset = header[0] << 16;
+            int offset = (header[0] & 0xFF) << 16;
             offset |= (header[1] & 0xFF) << 8;
             offset |= header[2] & 0xFF;
             offset *= 4096;
-            int size = header[3] * 4096;
+            int size = (header[3] & 0xFF) * 4096;
 
             if (size == 0) return Chunk.EMPTY_CHUNK;
 
@@ -122,7 +131,7 @@ public class MCARegion implements Region {
                 for (int z = 0; z < 32; z++) {
                     int xzChunk = (z & 0b11111) << 5 | (x & 0b11111);
 
-                    int size = header[xzChunk * 4 + 3] * 4096;
+                    int size = (header[xzChunk * 4 + 3] & 0xFF) * 4096;
                     if (size == 0) continue;
 
                     int chunkX = chunkStartX + x;
@@ -135,9 +144,9 @@ public class MCARegion implements Region {
                     timestamp |= header[i] & 0xFF;
 
                     // load chunk only if consumers filter returns true
-                    if (consumer.filter(chunkX, chunkZ, timestamp * 1000L)) {
+                    if (consumer.filter(chunkX, chunkZ, timestamp)) {
                         i = xzChunk * 4;
-                        int offset = header[i++] << 16;
+                        int offset = (header[i++] & 0xFF) << 16;
                         offset |= (header[i++] & 0xFF) << 8;
                         offset |= header[i] & 0xFF;
                         offset *= 4096;
@@ -157,16 +166,10 @@ public class MCARegion implements Region {
     }
 
     private MCAChunk loadChunk(byte[] data, int size) throws IOException {
-        int compressionTypeId = data[4];
-        Compression compression;
-        switch (compressionTypeId) {
-            case 0 :
-            case 3 : compression = Compression.NONE; break;
-            case 1 : compression = Compression.GZIP; break;
-            case 2 : compression = Compression.DEFLATE; break;
-            case 4 : compression = Compression.LZ4; break;
-            default: throw new IOException("Unknown chunk compression-id: " + compressionTypeId);
-        }
+        int compressionTypeId = Byte.toUnsignedInt(data[4]);
+        Compression compression = CHUNK_COMPRESSION_MAP[compressionTypeId];
+        if (compression == null)
+            throw new IOException("Unknown chunk compression-id: " + compressionTypeId);
 
         return world.getChunkLoader().load(data, 5, size - 5, compression);
     }

@@ -17,6 +17,8 @@ val javaTarget = 16
 java {
     sourceCompatibility = JavaVersion.toVersion(javaTarget)
     targetCompatibility = JavaVersion.toVersion(javaTarget)
+    withSourcesJar()
+    withJavadocJar()
 }
 
 repositories {
@@ -27,12 +29,13 @@ repositories {
 
 dependencies {
     api ("com.mojang:brigadier:1.0.17")
+
     api ("de.bluecolored.bluemap:BlueMapCore")
 
     compileOnly ("org.jetbrains:annotations:16.0.2")
-    compileOnly ("org.projectlombok:lombok:1.18.30")
+    compileOnly ("org.projectlombok:lombok:1.18.32")
 
-    annotationProcessor ("org.projectlombok:lombok:1.18.30")
+    annotationProcessor ("org.projectlombok:lombok:1.18.32")
 
     testImplementation ("org.junit.jupiter:junit-jupiter:5.8.2")
     testRuntimeOnly ("org.junit.jupiter:junit-jupiter-engine:5.8.2")
@@ -48,8 +51,22 @@ spotless {
     }
 }
 
+tasks.javadoc {
+    options {
+        (this as? StandardJavadocDocletOptions)?.apply {
+            links(
+                "https://docs.oracle.com/en/java/javase/16/docs/api/",
+                "https://javadoc.io/doc/com.flowpowered/flow-math/1.0.3/",
+                "https://javadoc.io/doc/com.google.code.gson/gson/2.8.0/",
+            )
+            addStringOption("Xdoclint:none", "-quiet")
+            addBooleanOption("html5", true)
+        }
+    }
+}
+
 node {
-    version.set("16.15.0")
+    version.set("20.14.0")
     download.set(true)
     nodeProjectDir.set(file("webapp/"))
 }
@@ -69,12 +86,14 @@ tasks.test {
     useJUnitPlatform()
 }
 
-tasks.register("buildWebapp", type = NpmTask::class) {
+tasks.clean {
     doFirst {
         if (!file("webapp/dist/").deleteRecursively())
             throw IOException("Failed to delete build directory!")
     }
+}
 
+tasks.register("buildWebapp", type = NpmTask::class) {
     dependsOn ("npmInstall")
     args.set(listOf("run", "build"))
 
@@ -88,15 +107,13 @@ tasks.register("zipWebapp", type = Zip::class) {
     archiveFileName.set("webapp.zip")
     destinationDirectory.set(file("src/main/resources/de/bluecolored/bluemap/"))
 
-    //outputs.upToDateWhen { false }
     inputs.dir("webapp/dist/")
     outputs.file("src/main/resources/de/bluecolored/bluemap/webapp.zip")
 }
 
 //always update the zip before build
-tasks.processResources {
-    dependsOn("zipWebapp")
-}
+tasks.processResources { dependsOn("zipWebapp") }
+tasks.getByName("sourcesJar") { dependsOn("zipWebapp") }
 
 publishing {
     repositories {

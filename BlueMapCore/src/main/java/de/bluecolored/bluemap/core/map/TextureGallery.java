@@ -24,16 +24,11 @@
  */
 package de.bluecolored.bluemap.core.map;
 
-import com.google.gson.FieldNamingPolicy;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonIOException;
-import com.google.gson.JsonParseException;
-import de.bluecolored.bluemap.api.debug.DebugDump;
+import com.google.gson.*;
 import de.bluecolored.bluemap.core.resources.ResourcePath;
 import de.bluecolored.bluemap.core.resources.adapter.ResourcesGson;
-import de.bluecolored.bluemap.core.resources.resourcepack.ResourcePack;
-import de.bluecolored.bluemap.core.resources.resourcepack.texture.Texture;
+import de.bluecolored.bluemap.core.resources.pack.resourcepack.ResourcePack;
+import de.bluecolored.bluemap.core.resources.pack.resourcepack.texture.Texture;
 import de.bluecolored.bluemap.core.util.Key;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +38,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
-@DebugDump
 public class TextureGallery {
 
     private static final Gson GSON = ResourcesGson.addAdapter(new GsonBuilder())
@@ -84,7 +78,12 @@ public class TextureGallery {
         this.put(ResourcePack.MISSING_TEXTURE); // put this first
         resourcePack.getTextures().keySet()
                 .stream()
-                .sorted(Comparator.comparing(Key::getFormatted))
+                .sorted(Comparator
+                        .comparing((ResourcePath<Texture> r) ->  {
+                            Texture texture = r.getResource(resourcePack::getTexture);
+                            return texture != null && texture.getColorPremultiplied().a < 1f;
+                        })
+                        .thenComparing(Key::getFormatted))
                 .forEach(this::put);
     }
 

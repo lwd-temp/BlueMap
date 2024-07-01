@@ -5,8 +5,8 @@ plugins {
 	`java-library`
 	id("com.diffplug.spotless") version "6.1.2"
 	id ("com.github.node-gradle.node") version "3.0.1"
-	id ("com.github.johnrengelman.shadow") version "7.1.2"
-	id ("org.spongepowered.gradle.plugin") version "2.0.0"
+	id ("com.github.johnrengelman.shadow") version "8.1.1"
+	id ("org.spongepowered.gradle.plugin") version "2.2.0"
 	id ("com.modrinth.minotaur") version "2.+"
 	id("org.spongepowered.gradle.ore") version "2.2.0"
 }
@@ -14,11 +14,7 @@ plugins {
 group = "de.bluecolored.bluemap"
 version = System.getProperty("bluemap.version") ?: "?" // set by BlueMapCore
 
-val javaTarget = 16
-java {
-	sourceCompatibility = JavaVersion.toVersion(javaTarget)
-	targetCompatibility = JavaVersion.toVersion(javaTarget)
-}
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 repositories {
 	mavenCentral()
@@ -31,7 +27,6 @@ dependencies {
 		//exclude dependencies provided by sponge
 		exclude( group = "com.google.guava", module = "guava" )
 		exclude( group = "com.google.code.gson", module = "gson" )
-		exclude( group = "org.apache.commons", module = "commons-lang3" )
 		exclude( group = "javax.inject" )
 		exclude( group = "com.google.inject" )
 	}
@@ -43,7 +38,7 @@ dependencies {
 }
 
 sponge {
-	apiVersion("8.2.0")
+	apiVersion("11.0.0")
 	license("MIT")
 	loader {
 		name(PluginLoaders.JAVA_PLAIN)
@@ -57,7 +52,6 @@ sponge {
 			description("Lead Developer")
 		}
 		dependency("spongeapi") {
-			version("8.2.0")
 			optional(false)
 		}
 	}
@@ -119,7 +113,6 @@ tasks.shadowJar {
 	relocate ("net.jpountz", "de.bluecolored.shadow.jpountz")
 
 	relocate ("org.apache.commons.dbcp2", "de.bluecolored.shadow.apache.commons.dbcp2")
-	relocate ("org.apache.commons.io", "de.bluecolored.shadow.apache.commons.io")
 	relocate ("org.apache.commons.logging", "de.bluecolored.shadow.apache.commons.logging")
 	relocate ("org.apache.commons.pool2", "de.bluecolored.shadow.apache.commons.pool2")
 }
@@ -137,7 +130,9 @@ modrinth {
 		.replace("{version}", project.version.toString()))
 	uploadFile.set(tasks.findByName("shadowJar"))
 	loaders.addAll("sponge")
-	gameVersions.addAll("1.16.5")
+	gameVersions.addAll(
+		"1.20", "1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"
+	)
 }
 
 tasks.register("publish") {
